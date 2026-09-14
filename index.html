@@ -105,7 +105,7 @@
       herName: "My Dearest",
       myName: "Me",
       duration: "almost 5 years",
-      whatsAppNumber: "919106764653", // Updated India code (+91) with 9106764653
+      whatsAppNumber: "919106764653",
       whatsAppMessage: "Hey... I finished reading the website. Let's talk properly. ❤️",
       photos: [
         {
@@ -122,69 +122,6 @@
         }
       ]
     };
-
-    // --- AMBIENT SOUND GENERATOR ---
-    class AmbientChords {
-      constructor() {
-        this.ctx = null;
-        this.isPlaying = false;
-        this.timer = null;
-      }
-      init() {
-        if (!this.ctx) {
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          this.ctx = new AudioContext();
-        }
-      }
-      playChord(freqs, time, duration) {
-        freqs.forEach(freq => {
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.type = "sine";
-          osc.frequency.setValueAtTime(freq, time);
-
-          gain.gain.setValueAtTime(0, time);
-          gain.gain.linearRampToValueAtTime(0.025, time + 1.8);
-          gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
-
-          osc.connect(gain);
-          gain.connect(this.ctx.destination);
-
-          osc.start(time);
-          osc.stop(time + duration);
-        });
-      }
-      start() {
-        this.init();
-        if (this.ctx.state === 'suspended') {
-          this.ctx.resume();
-        }
-        this.isPlaying = true;
-        
-        const progression = [
-          [174.61, 220.00, 261.63, 329.63], // F, A, C, E
-          [130.81, 196.00, 246.94, 329.63], // C, G, B, E
-          [146.83, 220.00, 261.63, 293.66], // D, A, C, D
-          [116.54, 174.61, 233.08, 293.66]  // Bb, F, Bb, D
-        ];
-        
-        let index = 0;
-        const loop = () => {
-          if (!this.isPlaying) return;
-          const now = this.ctx.currentTime;
-          this.playChord(progression[index % progression.length], now, 6.5);
-          index++;
-          this.timer = setTimeout(loop, 4500);
-        };
-        loop();
-      }
-      stop() {
-        this.isPlaying = false;
-        if (this.timer) clearTimeout(this.timer);
-      }
-    }
-
-    const ambientAudio = new AmbientChords();
 
     // --- CANVAS PARTICLES & BUTTERFLIES ---
     const CanvasBackground = ({ isDark }) => {
@@ -294,6 +231,7 @@
     function App() {
       const [step, setStep] = useState(0);
       const [musicOn, setMusicOn] = useState(false);
+      const audioRef = useRef(null);
 
       // Branch states
       const [forgiveChoice, setForgiveChoice] = useState(null);
@@ -304,12 +242,26 @@
       const [meetChoice, setMeetChoice] = useState(null);
       const [waChoice, setWaChoice] = useState(null);
 
+      const startMusic = () => {
+        if (audioRef.current && !musicOn) {
+          audioRef.current.play().then(() => {
+            setMusicOn(true);
+          }).catch(err => {
+            console.log("Audio play note:", err);
+          });
+        }
+      };
+
       const toggleMusic = () => {
+        if (!audioRef.current) return;
         if (!musicOn) {
-          ambientAudio.start();
-          setMusicOn(true);
+          audioRef.current.play().then(() => {
+            setMusicOn(true);
+          }).catch(err => {
+            console.log("Audio play failed:", err);
+          });
         } else {
-          ambientAudio.stop();
+          audioRef.current.pause();
           setMusicOn(false);
         }
       };
@@ -329,7 +281,10 @@
         <div className={`min-h-screen relative flex flex-col font-sans transition-colors duration-1000 ${isDarkMode ? 'bg-[#0f0914] text-[#f8e9ee]' : 'bg-gradient-to-br from-blush-50 via-cream-50 to-lavender-100 text-[#372b33]'}`}>
           <CanvasBackground isDark={isDarkMode} />
 
-          {/* Top subtle controls bar (music only) */}
+          {/* HTML5 Audio with loop enabled */}
+          <audio ref={audioRef} src="music.mp3" loop preload="auto" />
+
+          {/* Top subtle controls bar */}
           <header className="relative z-20 flex justify-between items-center px-5 py-4 max-w-md mx-auto w-full">
             <div className="flex items-center space-x-2">
               <span className="font-handwritten text-xl text-blush-500 font-bold tracking-wide">
@@ -351,13 +306,13 @@
               >
                 <span>{musicOn ? '🎵' : '🔇'}</span>
                 <span className="text-[11px] font-medium hidden sm:inline">
-                  {musicOn ? 'Soft Sound On' : 'Soft Sound'}
+                  {musicOn ? 'Music Playing' : 'Play Music'}
                 </span>
               </button>
             </div>
           </header>
 
-          {/* Progress hint for sections (1 through 9) */}
+          {/* Progress hint for sections */}
           {step > 0 && step < 10 && (
             <div className="relative z-10 w-full max-w-md mx-auto px-6 mb-2">
               <div className="h-1 w-full bg-black/5 rounded-full overflow-hidden">
@@ -372,7 +327,10 @@
           {/* Main content container */}
           <main className="relative z-10 flex-1 flex flex-col justify-center items-center px-4 py-4 w-full max-w-md mx-auto">
             {step === 0 && (
-              <LandingScreen onOpen={() => nextStep()} />
+              <LandingScreen onOpen={() => {
+                startMusic();
+                nextStep();
+              }} />
             )}
 
             {step === 1 && (
